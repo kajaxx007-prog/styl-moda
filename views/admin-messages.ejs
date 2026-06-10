@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+    <meta charset="UTF-8">
+    <title>Wiadomości – Panel Admina</title>
+    <link rel="stylesheet" href="/style.css">
+    <style>
+        .chat-list { list-style: none; padding: 0; }
+        .chat-list li { border-bottom: 1px solid #ccc; padding: 10px; cursor: pointer; }
+        .chat-list li:hover { background: #f0f0f0; }
+        .chat-box { border: 1px solid #ccc; height: 300px; overflow-y: scroll; padding: 10px; margin-bottom: 10px; }
+        .incoming { color: blue; }
+        .outgoing { color: green; text-align: right; }
+    </style>
+</head>
+<body>
+    <%- include('partials/navbar') %>
+    <div class="container">
+        <h2>Skrzynka odbiorcza</h2>
+        <div style="display: flex; gap: 20px;">
+            <div style="width: 30%;">
+                <h3>Rozmowy</h3>
+                <ul class="chat-list" id="chatList">
+                    <% customers.forEach(c => { %>
+                        <li data-customer-id="<%= c._id %>">
+                            <strong><%= c.name %></strong> (ID: <%= c.shortId %>)<br>
+                            <small><%= c.lastMessage %></small>
+                        </li>
+                    <% }) %>
+                </ul>
+            </div>
+            <div style="width: 70%;" id="chatWindow">
+                <p>Wybierz rozmowę z listy po lewej.</p>
+            </div>
+        </div>
+    </div>
+    <script>
+        document.querySelectorAll('#chatList li').forEach(item => {
+            item.addEventListener('click', async () => {
+                const customerId = item.dataset.customerId;
+                const res = await fetch(`/admin/messages/${customerId}`);
+                const data = await res.json();
+                let html = `<h3>${data.customer.name} (ID: ${data.customer.shortId})</h3>`;
+                html += '<div class="chat-box" id="messagesContainer">';
+                data.messages.forEach(msg => {
+                    html += `<p class="${msg.direction}"><strong>${msg.direction === 'incoming' ? 'Klient' : 'Ja'}:</strong> ${msg.text}</p>`;
+                });
+                html += '</div>';
+                html += `<form id="sendForm" onsubmit="sendMessage(event, '${customerId}')">
+                    <input type="text" id="messageText" placeholder="Wpisz wiadomość..." required>
+                    <button type="submit">Wyślij</button>
+                </form>`;
+                document.getElementById('chatWindow').innerHTML = html;
+            });
+        });
+        async function sendMessage(e, customerId) {
+            e.preventDefault();
+            const text = document.getElementById('messageText').value;
+            await fetch('/admin/messages/send', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ customerId, text })
+            });
+            document.getElementById('messageText').value = '';
+            const res = await fetch(`/admin/messages/${customerId}`);
+            const data = await res.json();
+            let html = '';
+            data.messages.forEach(msg => {
+                html += `<p class="${msg.direction}"><strong>${msg.direction === 'incoming' ? 'Klient' : 'Ja'}:</strong> ${msg.text}</p>`;
+            });
+            document.getElementById('messagesContainer').innerHTML = html;
+        }
+    </script>
+</body>
+</html>
