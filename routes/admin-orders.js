@@ -28,6 +28,7 @@ router.get('/admin/orders', requireAuth, async (req, res) => {
           items: [],
           totalAmount: 0,
           orders: []   // przechowujemy oryginalne zamówienia
+          liveVideoId: order.liveVideoId   // ← dodaj tę linię
         });
       }
 
@@ -65,28 +66,46 @@ router.get('/admin/orders', requireAuth, async (req, res) => {
   }
 });
 
-// POST – zmiana statusu
-router.post('/admin/orders/:id/status', requireAuth, async (req, res) => {
-  const { status } = req.body;
-  try {
-    const order = await Order.findById(req.params.id);
-    if (!order) return res.redirect('/admin/orders');
+// POST – wyślij podsumowania dla danego live
+router.post('/admin/orders/send-summaries', requireAuth, async (req, res) => {
+    const { liveVideoId } = req.body;
+    if (!liveVideoId) return res.redirect('/admin/orders');
 
-    if (status === 'anulowane' && order.status !== 'anulowane') {
-      for (const item of order.items) {
-        await Product.findOneAndUpdate(
-          { _id: item.productId, 'variants._id': item.variantId },
-          { $inc: { 'variants.$.reserved': -item.quantity, 'variants.$.stock': item.quantity } }
-        );
-      }
+    const orders = await Order.find({ liveVideoId }).populate('customerId');
+
+    const customerOrders = {};
+    orders.forEach(order => {
+        const custId = order.customerId?._id.toString();
+        if (!custId) return;
+        if (!customerOrders[custId]) customerOrders[custId] = [];
+        customerOrders[custId].push(order);
+    });
+
+    for (const [custId, orders] of Object.entries(customerOrders)) {
+        const customer = orders[0].customerId;
+        if (!customer?.messengerPsid) continue;
+
+        let summary = `Twoje podsumowanie zamówienia z live:\n\n`;
+        let total = 0;
+        orders.forEach(order => {
+            order.items.forEach(item => {
+                summary += `- ${item.productName} (${item.color}/${item.size}) x${item.quantity} = ${(item.price * item.quantity).toFixed(2)} zł\n`;
+                total += item.price * item.quantity;
+            });
+        });
+        summary += `\nŁączna kwota do zapłaty: ${total.toFixed(2)} zł`;
+
+        try {
+            await axios.post(
+                `https://graph.facebook.com/v25.0/me/messages`,
+                { recipient: { id: customer.messengerPsid }, message: { text: summary } },
+                { params: { access_token: process.env.FACEBOOK_PAGE_ACCESS_TOKEN } }
+            );
+            console.log(`✅ Podsumowanie wysłane do ${customer.name}`);
+        } catch (err) {
+            console.error(`❌ Błąd wysyłania do ${customer.name}:`, err.response?.data || err.message);
+        }
     }
 
-    order.status = status;
-    await order.save({ validateModifiedOnly: true });
-  } catch (err) {
-    console.error('Błąd zmiany statusu:', err);
-  }
-  res.redirect('/admin/orders');
+    res.redirect('/admin/orders');
 });
-
-module.exports = router;
