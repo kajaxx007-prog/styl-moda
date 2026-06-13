@@ -10,7 +10,10 @@
     <%- include('partials/navbar') %>
     <div class="container">
         <h2>Zamówienia klientów (wg dni)</h2>
-        <p><a href="/admin">← Panel główny</a></p>
+        <p>
+            <a href="/admin">← Panel główny</a>
+            | <a href="/admin/orders/new"><button>+ Dodaj zamówienie ręcznie</button></a>
+        </p>
         <hr>
         <% if (groupedOrders.length === 0) { %>
             <p>Brak zamówień.</p>
@@ -61,6 +64,7 @@
                                         </select>
                                         <button type="submit">Zmień</button>
                                     </form>
+                                    <a href="/admin/orders/<%= orderId %>/edit"><button type="button">Edytuj</button></a>
                                 </li>
                             <% }) %>
                         </ul>
@@ -77,6 +81,7 @@
                                 </select>
                                 <button type="submit">Zmień</button>
                             </form>
+                            <a href="/admin/orders/<%= group.orderIds[0] %>/edit"><button type="button">Edytuj</button></a>
                         </div>
                     <% } %>
                 </div>

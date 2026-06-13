@@ -109,3 +109,138 @@ router.post('/admin/orders/send-summaries', requireAuth, async (req, res) => {
 
     res.redirect('/admin/orders');
 });
+
+// GET – formularz edycji zamówienia
+router.get('/admin/orders/:id/edit', requireAuth, async (req, res) => {
+    const order = await Order.findById(req.params.id).populate('customerId');
+    const products = await Product.find().sort({ number: 1 });
+    res.render('admin-orders-edit', { order, products });
+});
+
+// POST – zapis edycji zamówienia
+router.post('/admin/orders/:id/edit', requireAuth, async (req, res) => {
+    try {
+        const order = await Order.findById(req.params.id);
+        if (!order) return res.redirect('/admin/orders');
+
+        const { itemProductId, itemVariantId, itemQuantity, newProductId, newVariantId, newQuantity } = req.body;
+
+        // Aktualizuj istniejące itemy
+        if (Array.isArray(itemProductId)) {
+            for (let i = 0; i < itemProductId.length; i++) {
+                if (!order.items[i]) continue;
+                order.items[i].productId = itemProductId[i];
+                order.items[i].variantId = itemVariantId[i];
+                order.items[i].quantity = parseInt(itemQuantity[i]) || 1;
+
+                const product = await Product.findById(itemProductId[i]);
+                if (product) {
+                    const variant = product.variants.id(itemVariantId[i]);
+                    if (variant) {
+                        order.items[i].productName = product.name;
+                        order.items[i].color = variant.color;
+                        order.items[i].size = variant.size;
+                        order.items[i].price = product.sellingPrice;
+                    }
+                }
+            }
+        }
+
+        // Dodaj nowy item
+        if (newProductId && newVariantId) {
+            const product = await Product.findById(newProductId);
+            if (product) {
+                const variant = product.variants.id(newVariantId);
+                if (variant) {
+                    order.items.push({
+                        productId: product._id,
+                        variantId: variant._id,
+                        productName: product.name,
+                        color: variant.color,
+                        size: variant.size,
+                        price: product.sellingPrice,
+                        quantity: parseInt(newQuantity) || 1
+                    });
+                }
+            }
+        }
+
+        // Usuń puste itemy
+        order.items = order.items.filter(item => item.quantity > 0);
+
+        // Przelicz kwotę
+        order.totalAmount = order.items.reduce((sum, item) => sum + item.price * item.quantity, 0);
+
+        await order.save();
+        res.redirect('/admin/orders');
+    } catch (err) {
+        console.error(err);
+        res.redirect('/admin/orders');
+    }
+});
+
+// GET – formularz nowego zamówienia
+router.get('/admin/orders/new', requireAuth, async (req, res) => {
+    const customers = await Customer.find().sort({ name: 1 });
+    const products = await Product.find().sort({ number: 1 });
+    res.render('admin-orders-new', { customers, products });
+});
+
+// POST – utwórz nowe zamówienie ręcznie
+router.post('/admin/orders/new', requireAuth, async (req, res) => {
+    try {
+        const { customerId, liveVideoId, productIds, variantIds, quantities } = req.body;
+
+        const customer = await Customer.findById(customerId);
+        if (!customer) return res.redirect('/admin/orders');
+
+        const items = [];
+        let totalAmount = 0;
+
+        const prodIds = Array.isArray(productIds) ? productIds : [productIds];
+        const varIds = Array.isArray(variantIds) ? variantIds : [variantIds];
+        const qty = Array.isArray(quantities) ? quantities : [quantities];
+
+        for (let i = 0; i < prodIds.length; i++) {
+            if (!prodIds[i] || !varIds[i]) continue;
+            const product = await Product.findById(prodIds[i]);
+            if (!product) continue;
+
+            const variant = product.variants.id(varIds[i]);
+            if (!variant) continue;
+
+            const quantity = parseInt(qty[i]) || 1;
+            const price = product.sellingPrice;
+
+            items.push({
+                productId: product._id,
+                variantId: variant._id,
+                productName: product.name,
+                color: variant.color,
+                size: variant.size,
+                price: price,
+                quantity: quantity
+            });
+            totalAmount += price * quantity;
+        }
+
+        if (items.length === 0) return res.redirect('/admin/orders');
+
+        const order = new Order({
+            customerId: customer._id,
+            customerName: customer.name,
+            liveVideoId: liveVideoId || 'manual',
+            items,
+            totalAmount,
+            status: 'nowe'
+        });
+        await order.save();
+
+        res.redirect('/admin/orders');
+    } catch (err) {
+        console.error(err);
+        res.redirect('/admin/orders');
+    }
+});
+
+module.exports = router;

@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+    <meta charset="UTF-8">
+    <title>Edytuj zamówienie</title>
+    <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+    <%- include('partials/navbar') %>
+    <div class="container">
+        <h2>Edytuj zamówienie</h2>
+        <p><a href="/admin/orders">← Powrót</a></p>
+        <form method="POST" action="/admin/orders/<%= order._id %>/edit">
+            <h3>Klient: <%= order.customerName %></h3>
+            <table border="1" cellpadding="5" id="itemsTable">
+                <tr><th>Produkt</th><th>Wariant</th><th>Ilość</th></tr>
+                <% order.items.forEach((item, index) => { %>
+                <tr>
+                    <td>
+                        <select name="itemProductId" onchange="updateVariants(this)">
+                            <% products.forEach(p => { %>
+                                <option value="<%= p._id %>" <%= item.productId.toString() === p._id.toString() ? 'selected' : '' %>><%= p.number %> – <%= p.name %></option>
+                            <% }) %>
+                        </select>
+                    </td>
+                    <td>
+                        <select name="itemVariantId">
+                            <% products.forEach(p => { %>
+                                <% p.variants.forEach(v => { %>
+                                    <option value="<%= v._id %>" data-product-id="<%= p._id %>" <%= item.variantId.toString() === v._id.toString() ? 'selected' : '' %>><%= v.color %> / <%= v.size %> (<%= v.stock %>)</option>
+                                <% }) %>
+                            <% }) %>
+                        </select>
+                    </td>
+                    <td><input type="number" name="itemQuantity" value="<%= item.quantity %>" min="1" style="width:60px"></td>
+                </tr>
+                <% }) %>
+            </table>
+
+            <h4>Dodaj nowy produkt</h4>
+            <select name="newProductId" id="newProductId">
+                <option value="">— wybierz —</option>
+                <% products.forEach(p => { %>
+                    <option value="<%= p._id %>"><%= p.number %> – <%= p.name %></option>
+                <% }) %>
+            </select>
+            <select name="newVariantId" id="newVariantId">
+                <option value="">— wybierz wariant —</option>
+            </select>
+            <input type="number" name="newQuantity" value="1" min="1" style="width:60px">
+
+            <br><br>
+            <button type="submit">Zapisz zmiany</button>
+        </form>
+    </div>
+
+    <script>
+        // Ukryj niepasujące warianty przy edycji istniejących itemów
+        document.querySelectorAll('select[name="itemProductId"]').forEach(select => {
+            updateVariants(select);
+        });
+
+        function updateVariants(productSelect) {
+            const row = productSelect.closest('tr');
+            const variantSelect = row.querySelector('select[name="itemVariantId"]');
+            const selectedProductId = productSelect.value;
+            variantSelect.querySelectorAll('option').forEach(opt => {
+                if (opt.dataset.productId === selectedProductId || opt.value === '') {
+                    opt.style.display = '';
+                } else {
+                    opt.style.display = 'none';
+                }
+            });
+        }
+
+        // Dynamiczne warianty dla nowego produktu
+        document.getElementById('newProductId').addEventListener('change', function() {
+            const variantSelect = document.getElementById('newVariantId');
+            variantSelect.innerHTML = '<option value="">— wybierz wariant —</option>';
+            fetch('/api/products')
+                .then(res => res.json())
+                .then(products => {
+                    const product = products.find(p => p._id === this.value);
+                    if (product) {
+                        product.variants.forEach(v => {
+                            const opt = document.createElement('option');
+                            opt.value = v._id;
+                            opt.textContent = `${v.color} / ${v.size} (${v.stock})`;
+                            variantSelect.appendChild(opt);
+                        });
+                    }
+                });
+        });
+    </script>
+</body>
+</html>

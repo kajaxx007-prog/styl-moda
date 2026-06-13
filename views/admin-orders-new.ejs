@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+    <meta charset="UTF-8">
+    <title>Nowe zamówienie</title>
+    <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+    <%- include('partials/navbar') %>
+    <div class="container">
+        <h2>Dodaj zamówienie ręcznie</h2>
+        <p><a href="/admin/orders">← Powrót</a></p>
+        <form method="POST" action="/admin/orders/new">
+            <label>Klient:</label>
+            <select name="customerId" required>
+                <option value="">— wybierz —</option>
+                <% customers.forEach(c => { %>
+                    <option value="<%= c._id %>"><%= c.name %> (ID: <%= c.shortId %>)</option>
+                <% }) %>
+            </select><br><br>
+
+            <label>ID transmisji (opcjonalnie):</label>
+            <input type="text" name="liveVideoId"><br><br>
+
+            <h4>Produkty</h4>
+            <div id="productRows">
+                <div class="product-row">
+                    <select name="productIds" onchange="loadVariants(this)">
+                        <option value="">— wybierz produkt —</option>
+                        <% products.forEach(p => { %>
+                            <option value="<%= p._id %>"><%= p.number %> – <%= p.name %></option>
+                        <% }) %>
+                    </select>
+                    <select name="variantIds">
+                        <option value="">— wybierz wariant —</option>
+                    </select>
+                    <input type="number" name="quantities" value="1" min="1" style="width:60px">
+                    <button type="button" onclick="addRow()">+</button>
+                </div>
+            </div>
+            <br>
+            <button type="submit">Utwórz zamówienie</button>
+        </form>
+    </div>
+
+    <script>
+        async function loadVariants(select) {
+            const row = select.closest('.product-row');
+            const variantSelect = row.querySelector('select[name="variantIds"]');
+            variantSelect.innerHTML = '<option value="">— wybierz wariant —</option>';
+            if (!select.value) return;
+            const res = await fetch('/api/products');
+            const products = await res.json();
+            const product = products.find(p => p._id === select.value);
+            if (product) {
+                product.variants.forEach(v => {
+                    const opt = document.createElement('option');
+                    opt.value = v._id;
+                    opt.textContent = `${v.color} / ${v.size} (${v.stock})`;
+                    variantSelect.appendChild(opt);
+                });
+            }
+        }
+
+        function addRow() {
+            const row = document.querySelector('.product-row').cloneNode(true);
+            row.querySelector('select[name="productIds"]').value = '';
+            row.querySelector('select[name="variantIds"]').innerHTML = '<option value="">— wybierz wariant —</option>';
+            row.querySelector('input[name="quantities"]').value = '1';
+            document.getElementById('productRows').appendChild(row);
+        }
+    </script>
+</body>
+</html>

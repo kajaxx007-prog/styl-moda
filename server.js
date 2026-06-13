@@ -479,6 +479,12 @@ app.get('/db-status', (req, res) => {
   });
 });
 
+// API dla produktów (do dynamicznych formularzy)
+app.get('/api/products', requireAuth, async (req, res) => {
+    const products = await Product.find().sort({ number: 1 });
+    res.json(products);
+});
+
 // --------------------------------------------------
 // START SERWERA
 // --------------------------------------------------
