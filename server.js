@@ -344,7 +344,10 @@ app.post('/webhook', async (req, res) => {
         const commentId = value.comment_id;
         const message = value.message || '';
         const from = value.from;
-        const liveVideoId = value.live_video_id;
+        let liveVideoId = value.live_video_id || (value.post_id ? value.post_id.split('_')[1] : null);
+        if (!liveVideoId && value.post && value.post.status_type === 'added_video') {
+        liveVideoId = value.post.id; // cały ID posta
+}
 
         if (!liveVideoId) {
           console.log(`⚠️ Komentarz nie pod live: ${commentId}`);
