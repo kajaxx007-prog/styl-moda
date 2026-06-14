@@ -20,8 +20,6 @@ const productAdminRoutes = require('./routes/admin-products');
 const orderAdminRoutes = require('./routes/admin-orders');
 const messengerRoutes = require('./routes/messenger');
 const adminMessagesRoutes = require('./routes/admin-messages');
-app.use(messengerRoutes);
-app.use(adminMessagesRoutes);
 
 const { startScheduler, rescheduleTemplate } = require('./services/chatScheduler');
 
@@ -123,7 +121,6 @@ function requireAuth(req, res, next) {
 // --------------------------------------------------
 // POLITYKA PRYWATNOŚCI
 // --------------------------------------------------
-a// server.js
 app.get('/privacy-policy', (req, res) => {
   res.send(`
     <!DOCTYPE html>
@@ -185,8 +182,7 @@ app.get('/privacy-policy', (req, res) => {
             <li>wniesienia sprzeciwu wobec przetwarzania danych,</li>
             <li>cofnięcia zgody na przetwarzanie danych w dowolnym momencie bez wpływu na zgodność z prawem przetwarzania, którego dokonano na podstawie zgody przed jej cofnięciem.</li>
         </ul>
-        <p>Aby skorzystać z powyższych praw, należy skontaktować się z Administratorem za pośrednictwem poczty elektronicznej: kajaxx007@gmail.com
-        .</p>
+        <p>Aby skorzystać z powyższych praw, należy skontaktować się z Administratorem za pośrednictwem poczty elektronicznej: kajaxx007@gmail.com.</p>
         <p>Użytkownikowi przysługuje również prawo wniesienia skargi do organu nadzorczego – Prezesa Urzędu Ochrony Danych Osobowych, jeśli uzna, że przetwarzanie danych narusza przepisy RODO.</p>
 
         <h2>6. Pliki cookies</h2>
@@ -196,7 +192,7 @@ app.get('/privacy-policy', (req, res) => {
         <p>Administrator zastrzega sobie prawo do wprowadzania zmian w niniejszej polityce prywatności. Wszelkie zmiany będą publikowane na tej stronie i wchodzą w życie z dniem ich opublikowania.</p>
 
         <h2>8. Kontakt</h2>
-        <p>Wszelkie pytania dotyczące niniejszej polityki prywatności prosimy kierować na adres poczty elektronicznej: [twój adres e-mail].</p>
+        <p>Wszelkie pytania dotyczące niniejszej polityki prywatności prosimy kierować na adres poczty elektronicznej: kajaxx007@gmail.com.</p>
 
         <p><a href="/">← Powrót do strony głównej</a></p>
 
@@ -212,7 +208,7 @@ app.get('/privacy-policy', (req, res) => {
 // STRONA GŁÓWNA
 // --------------------------------------------------
 app.get('/', (req, res) => {
-  res.render('index', { title: 'Mój Sellmo', orders: [] });
+  res.render('index', { title: 'Styl & Moda', orders: [] });
 });
 
 // --------------------------------------------------
@@ -309,6 +305,12 @@ app.use(productAdminRoutes);
 app.use(orderAdminRoutes);
 
 // --------------------------------------------------
+// TRASY MESSENGERA
+// --------------------------------------------------
+app.use(messengerRoutes);
+app.use(adminMessagesRoutes);
+
+// --------------------------------------------------
 // WEBHOOK FACEBOOKA – WERYFIKACJA
 // --------------------------------------------------
 app.get('/webhook', (req, res) => {
@@ -344,10 +346,11 @@ app.post('/webhook', async (req, res) => {
         const commentId = value.comment_id;
         const message = value.message || '';
         const from = value.from;
+        
         let liveVideoId = value.live_video_id || (value.post_id ? value.post_id.split('_')[1] : null);
         if (!liveVideoId && value.post && value.post.status_type === 'added_video') {
-        liveVideoId = value.post.id; // cały ID posta
-}
+          liveVideoId = value.post.id;
+        }
 
         if (!liveVideoId) {
           console.log(`⚠️ Komentarz nie pod live: ${commentId}`);
