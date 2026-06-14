@@ -347,9 +347,14 @@ app.post('/webhook', async (req, res) => {
         const message = value.message || '';
         const from = value.from;
         
-        let liveVideoId = value.live_video_id || (value.post_id ? value.post_id.split('_')[1] : null);
-        if (!liveVideoId && value.post && value.post.status_type === 'added_video') {
-          liveVideoId = value.post.id;
+        let liveVideoId = value.live_video_id;
+        if (!liveVideoId && value.post && value.post.permalink_url) {
+        // Wyciągnij ID z URL-a wideo: https://www.facebook.com/.../videos/27166560332965305
+        const match = value.post.permalink_url.match(/\/videos\/(\d+)/);
+        if (match) liveVideoId = match[1];
+        }
+        if (!liveVideoId && value.post_id) {
+          liveVideoId = value.post_id.split('_')[1]; // ostateczność
         }
 
         if (!liveVideoId) {
