@@ -1,8 +1,10 @@
 // routes/admin-orders.js
 const express = require('express');
 const router = express.Router();
+const axios = require('axios');
 const Order = require('../models/Order');
 const Product = require('../models/Product');
+const Customer = require('../models/Customer');
 
 function requireAuth(req, res, next) {
   if (!req.session.userId) return res.redirect('/login');
@@ -27,8 +29,8 @@ router.get('/admin/orders', requireAuth, async (req, res) => {
           date: createdAt.toLocaleDateString(),
           items: [],
           totalAmount: 0,
-          orders: []   // przechowujemy oryginalne zamówienia
-          liveVideoId: order.liveVideoId   
+          orders: [],                  // ← przecinek po tym
+          liveVideoId: order.liveVideoId
         });
       }
 
@@ -49,11 +51,11 @@ router.get('/admin/orders', requireAuth, async (req, res) => {
         totalAmount: group.totalAmount,
         orderIds: group.orders.map(o => o._id),
         statuses,
-        allSameStatus
+        allSameStatus,
+        liveVideoId: group.liveVideoId
       };
     });
 
-    // Mapa statusów dla formularzy zmiany (dla każdego zamówienia osobno)
     const orderStatusMap = {};
     orders.forEach(order => {
       orderStatusMap[order._id.toString()] = order.status;
@@ -125,7 +127,6 @@ router.post('/admin/orders/:id/edit', requireAuth, async (req, res) => {
 
         const { itemProductId, itemVariantId, itemQuantity, newProductId, newVariantId, newQuantity } = req.body;
 
-        // Aktualizuj istniejące itemy
         if (Array.isArray(itemProductId)) {
             for (let i = 0; i < itemProductId.length; i++) {
                 if (!order.items[i]) continue;
@@ -146,7 +147,6 @@ router.post('/admin/orders/:id/edit', requireAuth, async (req, res) => {
             }
         }
 
-        // Dodaj nowy item
         if (newProductId && newVariantId) {
             const product = await Product.findById(newProductId);
             if (product) {
@@ -165,12 +165,8 @@ router.post('/admin/orders/:id/edit', requireAuth, async (req, res) => {
             }
         }
 
-        // Usuń puste itemy
         order.items = order.items.filter(item => item.quantity > 0);
-
-        // Przelicz kwotę
         order.totalAmount = order.items.reduce((sum, item) => sum + item.price * item.quantity, 0);
-
         await order.save();
         res.redirect('/admin/orders');
     } catch (err) {
