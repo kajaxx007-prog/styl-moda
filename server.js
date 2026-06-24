@@ -221,7 +221,6 @@ app.get('/search', async (req, res) => {
   try {
     let orders;
 
-    // Jeśli zapytanie składa się tylko z cyfr -> szukaj po shortId
     if (/^\d+$/.test(query)) {
       const customer = await Customer.findOne({ shortId: parseInt(query) });
       if (customer) {
@@ -232,13 +231,11 @@ app.get('/search', async (req, res) => {
         orders = [];
       }
     } else {
-      // Standardowe wyszukiwanie po nazwisku
       orders = await Order.find({ customerName: new RegExp(query, 'i') })
         .sort({ createdAt: -1 })
         .populate('customerId');
     }
 
-    // Grupowanie
     const grouped = new Map();
     orders.forEach(order => {
       const createdAt = order.createdAt || new Date();
@@ -252,7 +249,7 @@ app.get('/search', async (req, res) => {
           date: createdAt.toLocaleDateString(),
           items: [],
           totalAmount: 0,
-          orders: []   // tymczasowo przetrzymujemy obiekty zamówień
+          orders: []
         });
       }
 
@@ -262,7 +259,6 @@ app.get('/search', async (req, res) => {
       group.totalAmount += order.totalAmount;
     });
 
-    // Przekształć na tablicę i pobierz statusy bezpośrednio z zamówień
     const groupedOrders = Array.from(grouped.values()).map(group => {
       const statuses = group.orders.map(o => o.status);
       const allSameStatus = statuses.every(s => s === statuses[0]);
@@ -299,14 +295,10 @@ app.get('/admin', requireAuth, (req, res) => {
 });
 
 // --------------------------------------------------
-// NOWE TRASY DLA PRODUKTÓW I ZAMÓWIEŃ
+// NOWE TRASY DLA PRODUKTÓW, ZAMÓWIEŃ I MESSENGERA
 // --------------------------------------------------
 app.use(productAdminRoutes);
 app.use(orderAdminRoutes);
-
-// --------------------------------------------------
-// TRASY MESSENGERA
-// --------------------------------------------------
 app.use(messengerRoutes);
 app.use(adminMessagesRoutes);
 
@@ -346,15 +338,14 @@ app.post('/webhook', async (req, res) => {
         const commentId = value.comment_id;
         const message = value.message || '';
         const from = value.from;
-        
+
         let liveVideoId = value.live_video_id;
         if (!liveVideoId && value.post && value.post.permalink_url) {
-        // Wyciągnij ID z URL-a wideo: https://www.facebook.com/.../videos/27166560332965305
-        const match = value.post.permalink_url.match(/\/videos\/(\d+)/);
-        if (match) liveVideoId = match[1];
+          const match = value.post.permalink_url.match(/\/videos\/(\d+)/);
+          if (match) liveVideoId = match[1];
         }
         if (!liveVideoId && value.post_id) {
-          liveVideoId = value.post_id.split('_')[1]; // ostateczność
+          liveVideoId = value.post_id.split('_')[1];
         }
 
         if (!liveVideoId) {
@@ -372,7 +363,6 @@ app.post('/webhook', async (req, res) => {
         console.log(`💬 ${customerName}: "${message}"`);
 
         try {
-          // 1. Klient – unikalne ID
           let customer = await Customer.findOne({ facebookId: fbId });
           if (!customer) {
             const lastCustomer = await Customer.findOne({ shortId: { $exists: true } }).sort({ shortId: -1 });
@@ -390,7 +380,6 @@ app.post('/webhook', async (req, res) => {
             await customer.save();
           }
 
-          // 2. Parsowanie parametrów
           const params = message.replace(keyword, '').trim().split(',').map(s => s.trim().toLowerCase());
           const productNumber = params[0];
           let color = params[1];
@@ -408,7 +397,6 @@ app.post('/webhook', async (req, res) => {
           };
           const normalizedColor = colorMap[color] || color;
 
-          // 3. Produkt i wariant
           const product = await Product.findOne({ number: productNumber });
           if (!product) {
             console.log(`⚠️ Produkt ${productNumber} nie istnieje`);
@@ -431,12 +419,10 @@ app.post('/webhook', async (req, res) => {
             return;
           }
 
-          // 4. Aktualizacja stanu
           variant.stock -= 1;
           variant.reserved += 1;
           await product.save();
 
-          // 5. Zamówienie
           const order = new Order({
             customerId: customer._id,
             customerName: customer.name,
@@ -456,7 +442,6 @@ app.post('/webhook', async (req, res) => {
           await order.save();
           console.log(`📦 Zamówienie #${order._id} dla ${customerName}`);
 
-          // 6. Automatyczna odpowiedź
           const appUrl = process.env.APP_URL || 'http://localhost:3000';
           const reply = `Zamówienie przyjęte! Aby otrzymać podsumowanie po zakończeniu live, wyślij pierwszą wiadomość na Messengerze: https://m.me/110560231925140?ref=customer_${customer._id}`;
           try {
