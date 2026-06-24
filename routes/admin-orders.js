@@ -28,7 +28,7 @@ router.get('/admin/orders', requireAuth, async (req, res) => {
           items: [],
           totalAmount: 0,
           orders: []   // przechowujemy oryginalne zamówienia
-          liveVideoId: order.liveVideoId   // ← dodaj tę linię
+          liveVideoId: order.liveVideoId   
         });
       }
 
